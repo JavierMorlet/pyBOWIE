@@ -8,7 +8,7 @@ with open(os.path.join(filename, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='pyBOWIE',
-    version='1.0.0',
+    version='1.0.2',
     description='Bayesian optimization for constrained or unconstrained, continuous, discrete or mixed data problems',
     author='Javier Morlet-Espinosa, Antonio Flores-Tlacuahuac',
     author_email='a00833961@tec.mx',
