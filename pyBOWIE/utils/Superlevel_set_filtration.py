@@ -10,7 +10,7 @@ from ..utils.Aux import Flatten
 # ****** Sl_sf ******
 # *******************************************************
 
-def Sl_sf(mesh, p_mesh, dims, jobs, q0, af_params, constraints_method, model, models_const, sense, Acq_fun):
+def Sl_sf(mesh, p_mesh, dims, jobs, q0, af_params, constraints_method, model, models_const, engine, sense, Acq_fun):
 
     """ 
     Find connected component of the matrix of points x in the domain adove the level set
@@ -142,7 +142,7 @@ def Sl_sf(mesh, p_mesh, dims, jobs, q0, af_params, constraints_method, model, mo
     #  Main
     # *************************
 
-    score = [Acq_fun(mesh[i], af_params, constraints_method, model, models_const) for i in range(len(mesh))]
+    score = [Acq_fun(mesh[i], af_params, constraints_method, model, models_const, engine) for i in range(len(mesh))]
     n_elements = len(mesh)
     # 
     if sense == "maximize":

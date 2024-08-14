@@ -11,11 +11,12 @@ from types import SimpleNamespace
 # ****** Errors ******
 # *******************************************************
 
-def Errors(d_nc, d_nd, design_type, surrogate, constraints_method, AF_name):
+def Errors(d_nc, d_nd, design_type, surrogate, engine, constraints_method, AF_name):
 
     valid_var_type = ["continuous", "integer", "categorical"]
     valid_design_type = ["random", "LHS", "Sobol", "Halton"]
     valid_surrogate_name = ["GP", "SGP"]
+    valid_engines = ["gpflow", "sklearn", "GPy"]
     valid_constraints_method = ["PoF", "GPC"]
     valid_af_names = ['UCB', 'EI', 'PI']
 
@@ -27,6 +28,9 @@ def Errors(d_nc, d_nd, design_type, surrogate, constraints_method, AF_name):
     
     if surrogate not in valid_surrogate_name:
         raise ValueError("Not valid acquisition function name, valid names are:", *valid_surrogate_name)
+    
+    if engine not in valid_engines:
+        raise ValueError("Not valid engine name, valid names are:", *valid_engines)
     
     if constraints_method not in valid_constraints_method:
         raise ValueError("Not valid method for constraints, valid names are:", *valid_constraints_method)
@@ -167,10 +171,18 @@ def Check_if_improvement(f_new, f_best, jobs, sense):
 # ****** Regret ******
 # *******************************************************
 
-def Regret(f_true, x, n_elements, model):
+def Regret(f_true, x, n_elements, model, engine):
 
     # Return an average of the reward
-    f_pred, _ = model.predict(x)
+    if engine == 'gpflow':
+        f_pred, _ = model.predict_f(x)
+    elif engine == 'sklearn':
+        f_pred, _ = model.predict(x, return_std=True)
+    elif engine == 'GPy':
+        f_pred, _ = model.predict(x)
+    else:
+        pass
+
     rt = [(f_true[i] - f_pred[i]) for i in range(n_elements)]
     rt = sum(rt)
 

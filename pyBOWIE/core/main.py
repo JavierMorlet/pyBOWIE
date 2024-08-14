@@ -15,6 +15,7 @@ class BO():
 
     def __init__(self, function, domain, sense,
                  surrogate = "GP",
+                 engine = 'gpflow',
                  acquisition_function = "UCB",
                  xi_0 = 2,
                  xi_f = 0.1,
@@ -44,6 +45,7 @@ class BO():
         self.domain = domain
         self.sense = sense
         self.surrogate = surrogate
+        self.engine = engine
         self.acquisition_function = acquisition_function
         self.xi_0 = xi_0
         self.xi_f = xi_f
@@ -76,7 +78,7 @@ class BO():
         #
         dims, d_nc, d_ni, d_nq, d_nd, x_l, x_u, int_val, cat_val, names = Space(self.domain)
         #
-        Errors(d_nc, d_nd, self.design, self.surrogate, self.constraints_method, self.acquisition_function)
+        Errors(d_nc, d_nd, self.design, self.surrogate, self.engine, self.constraints_method, self.acquisition_function)
         #
         problem_type = Problem_type(d_nc, d_ni, d_nq)
         # Get initial points of evaluation
@@ -86,9 +88,6 @@ class BO():
         # Evaluate constraints
         g, y = Eval_const(x, constraints_, n_constraints_, self.constraints_method)
         g = Imputation(g, constraints_, self.constraints_method)
-
-#        return x, f, n_p_design_
-
         # Perform data preprocessing, and dimensionality reduction and reduce if required
         x_tau, reducer_name, reducer_trained, inverter, dims_tau = Get_search_space_params(x, dims, d_nc, d_ni, d_nq, d_nd, x_l, x_u, int_val, cat_val, n_p_design_, problem_type, self.reducer, self.inverter_transform)
         # Reduce bounds
@@ -100,7 +99,7 @@ class BO():
         # Spawning processes
         n_jobs_ = Get_n_jobs(self.n_jobs)
         # Select covariance
-        kernel_ = Get_kernel(x_tau, f, dims_tau, self.surrogate, self.kernel, self.kern_discovery, self.kern_discovery_evals)
+        kernel_ = Get_kernel(x_tau, f, dims_tau, self.surrogate, self.kernel, self.kern_discovery, self.kern_discovery_evals, self.engine)
         # Initialize iteration parameters
         x_symb, x_symb_names, flag, q, q_inc, delta_q, chi, update_param = Iter_params(dims, dims_tau, self.max_iter, self.alpha)
         # Initialize AF parameters
@@ -119,19 +118,20 @@ class BO():
         # *****
         for ite in range(1, self.max_iter+1):
             # Train surrogate model
-            model = Train_model(x_tau, f, kernel_, self.surrogate, self.n_restarts)
+            model = Train_model(x_tau, f, kernel_, self.surrogate, self.n_restarts, self.engine)
             # Train surrogate model for constraints
-            models_constraints = Train_models_constraints(x_tau, g, constraints_, n_constraints_, self.constraints_method)
+            models_constraints = Train_models_constraints(x_tau, g, constraints_, n_constraints_, self.constraints_method, self.engine)
             # Find conected elements
-            connected_elements, n_connected_elements = Sl_sf(x_mesh, n_p_mesh, dims_tau, n_jobs_, q, af_params, self.constraints_method, model, models_constraints, self.sense, AF)
+            connected_elements, n_connected_elements = Sl_sf(x_mesh, n_p_mesh, dims_tau, n_jobs_, q, af_params, self.constraints_method, model, models_constraints, self.engine, self.sense, AF)
             # Find CI bounds
             if n_connected_elements == 0 or len(np.concatenate(connected_elements)) < n_jobs_:
-                mu, Sigma_inv, t_critical = Find_descriptors(x_mesh, len(x_mesh), n_jobs_, dims_tau, self.alpha, af_params, self.constraints_method, model, models_constraints, AF)
+                mu, Sigma_inv, t_critical = Find_descriptors(x_mesh, len(x_mesh), n_jobs_, dims_tau, self.alpha, af_params, self.constraints_method, model, models_constraints, self.engine, AF)
             else:
-                mu, Sigma_inv, t_critical = Find_descriptors(connected_elements, n_connected_elements, n_jobs_, dims_tau, self.alpha, af_params, self.constraints_method, model, models_constraints, AF)
+                mu, Sigma_inv, t_critical = Find_descriptors(connected_elements, n_connected_elements, n_jobs_, dims_tau, self.alpha, af_params, self.constraints_method, model, models_constraints, self.engine, AF)
+            # Lambdify CI bounds
             CI_lambda = Find_constrains(x_symb, mu, Sigma_inv, chi, t_critical, n_jobs_, dims_tau)
             # Find new point(s)
-            x_new_tau = Querry(n_jobs_, mu, CI_lambda, bounds, dims_tau, af_params, self.constraints_method, self.sense, model, models_constraints, AF)
+            x_new_tau = Querry(n_jobs_, mu, CI_lambda, bounds, dims_tau, af_params, self.constraints_method, self.sense, model, models_constraints, self.engine, AF)
             # Scale new point(s)
             x_new = X_new_scaling(x_new_tau, d_nc, d_ni, d_nq, x_l, x_u, int_val, cat_val, n_jobs_, reducer_name, self.inverter_transform, inverter, problem_type)
             # Evaluate objective function
@@ -157,7 +157,7 @@ class BO():
                 except:
                     pass
             # Compute regret
-            rt.append(Regret(f_new, np.array(x_new_tau), n_jobs_, model))
+            rt.append(Regret(f_new, np.array(x_new_tau), n_jobs_, model, self.engine))
             # Update iteration parameters
             q_inc += delta_q
             q = int(round(q_inc/5.0)*5.0)

@@ -97,8 +97,9 @@ def U_inverse_scaling(X, d_nc, d_ni, d_nq, x_l, x_u, int_val, cat_val, points, p
         y_new = np.empty([points+1, d_nd])
         size_y = [len(disc_val[i]) for i in range(d_nd)]
         for i in range(d_nd):
-            for j in range(len(int_val[i])):
-                y_new[:,i][np.where(int_val[i][j] == X[:,i])[0].tolist()] = j/size_y[i]
+            #print(int_val)
+            for j in range(len(disc_val[i])):
+                y_new[:,i][np.where(disc_val[i][j] == X[:,i])[0].tolist()] = j/size_y[i]
         
         return y_new
 
@@ -117,7 +118,7 @@ def U_inverse_scaling(X, d_nc, d_ni, d_nq, x_l, x_u, int_val, cat_val, points, p
         vars = np.hstack((xc_vars, xi_vars)).astype(float)
     elif problem_type == "Mixed_categorical":
         xc_vars = Scale_continuous_inv(X[:,:d_nc], x_l, x_u)
-        if d_ni == 1:
+        if d_nq == 1:
             xq_vars = Scale_discrete_inv(X[:,d_nc:].reshape(-1,1), d_nq, cat_val, points)
         else:
             xq_vars = Scale_discrete_inv(X[:,d_nc:], d_nq, cat_val, points)

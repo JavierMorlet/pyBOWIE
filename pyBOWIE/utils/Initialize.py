@@ -9,9 +9,15 @@ import sympy as sp
 import multiprocess as mp
 from scipy.stats import qmc
 from scipy.stats import chi2
-from GPy.kern import RBF
+from gpflow.kernels import RBF as RBF_gpflow
+from sklearn.gaussian_process.kernels import RBF as RBF_sklearn
 from ..utils.Preprocessing_data import U_scaling, U_inverse_scaling, Train_reducer, Train_inverter, Find_reducer, Find_inverter, Reduce
 from ..utils.Models import Kernel_discovery
+
+try:
+    from GPy.kern import RBF as RBF_gpy
+except:
+    pass
 
 # *******************************************************
 # ****** Space ******
@@ -464,12 +470,19 @@ def Get_n_jobs(n_jobs):
 # ****** Get_kernel ******
 # *******************************************************
 
-def Get_kernel(x, z, dims, surrogate, kernel, kern_discovery, kern_discovery_evals):
+def Get_kernel(x, z, dims, surrogate, kernel, kern_discovery, kern_discovery_evals, engine):
 
     if kern_discovery == "yes":
-        kernel_ = Kernel_discovery(x, z, dims, surrogate, kern_discovery_evals)
+        kernel_ = Kernel_discovery(x, z, dims, surrogate, kern_discovery_evals, engine)
     elif kern_discovery == "no" and kernel is None:
-        kernel_ = RBF(input_dim=dims, variance=1.0, lengthscale=1.0)
+        if engine == 'gpflow':
+            kernel_ = RBF_gpflow()
+        elif engine == 'sklearn':
+            kernel_ = RBF_sklearn()
+        elif engine == 'GPy':
+            kernel_ = RBF_gpy(input_dim=dims, variance=1.0, lengthscale=1.0)
+        else:
+            pass
     else:
         kernel_ = kernel
 

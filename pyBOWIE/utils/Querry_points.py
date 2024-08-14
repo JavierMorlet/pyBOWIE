@@ -13,7 +13,7 @@ from ..utils.Aux import Flatten
 # ****** Find_descriptors ******
 # *******************************************************
 
-def Find_descriptors(connected_elements, n_elements, n_jobs, dims, alpha, af_params, constraints_method, model, models_const, AF):
+def Find_descriptors(connected_elements, n_elements, n_jobs, dims, alpha, af_params, constraints_method, model, models_const, engine, Acq_fun):
 
     # *************************
     # Statistical_descriptors
@@ -78,10 +78,10 @@ def Find_descriptors(connected_elements, n_elements, n_jobs, dims, alpha, af_par
     # Clusters_GMM
     # *************************    
 
-    def Clusters_GMM(connected_elements, n_jobs, dims, af_params, constraints_method, model, models_const, AF):
+    def Clusters_GMM(connected_elements, n_jobs, dims, af_params, constraints_method, model, models_const, engine, Acq_fun):
 
         x_filtred = np.concatenate(connected_elements)
-        f_filtred = AF(x_filtred, af_params, constraints_method, model, models_const)
+        f_filtred = Acq_fun(x_filtred, af_params, constraints_method, model, models_const, engine)
         gmm = GaussianMixture(n_components=n_jobs, random_state=0).fit(np.hstack((x_filtred, f_filtred.reshape(-1,1))))
         mu = gmm.means_[:,0:dims]
         mu = [mu[i].reshape(-1,1) for i in range(n_jobs)]
@@ -96,7 +96,7 @@ def Find_descriptors(connected_elements, n_elements, n_jobs, dims, alpha, af_par
     # *************************
 
     if n_elements < n_jobs:
-        mu, Sigma_inv = Clusters_GMM(connected_elements, n_jobs, dims, af_params, constraints_method, model, models_const, AF)
+        mu, Sigma_inv = Clusters_GMM(connected_elements, n_jobs, dims, af_params, constraints_method, model, models_const, engine, Acq_fun)
         if dims == 1:
             t_critical = []
             for i in range(n_elements):
@@ -184,15 +184,15 @@ def Find_constrains(x_symb, mu, Sigma_inv, chi, t_critical, n_jobs, dims):
 # ****** Querry ******
 # *******************************************************
 
-def Querry(n_jobs, mu, CI_lambda, bnds, dims, af_params, constraints_method, sense, model, models_const, Acq_fun):
+def Querry(n_jobs, mu, CI_lambda, bnds, dims, af_params, constraints_method, sense, model, models_const, engine, Acq_fun):
 
     # Acquisition function for the optimization
-    def Acquisition_function_opt(x, af_params, sense, model, models_const):
+    def Acquisition_function_opt(x, af_params, sense, model, models_const, engine):
 
         if sense == "maximize":
-            af_opt = -Acq_fun(x.reshape(1,-1), af_params, constraints_method, model, models_const)
+            af_opt = -Acq_fun(x.reshape(1,-1), af_params, constraints_method, model, models_const, engine)
         elif sense == "minimize":
-            af_opt = Acq_fun(x.reshape(1,-1), af_params, constraints_method, model, models_const)
+            af_opt = Acq_fun(x.reshape(1,-1), af_params, constraints_method, model, models_const, engine)
         
         return af_opt
     
@@ -206,9 +206,9 @@ def Querry(n_jobs, mu, CI_lambda, bnds, dims, af_params, constraints_method, sen
         # Define the optimization problem
         if dims == 1:
             bnds = tuple(map(tuple, CI_lambda))
-            res = minimize(Acquisition_function_opt, x0=mu[i], args=(af_params, sense, model, models_const), method='BFGS', bounds=(bnds[i],))
+            res = minimize(Acquisition_function_opt, x0=mu[i].flatten(), args=(af_params, sense, model, models_const, engine), method='BFGS', bounds=(bnds[i],))
         else:
-            res = minimize(Acquisition_function_opt, x0=mu[i], args=(af_params, sense, model, models_const), method='SLSQP', bounds=bnds, constraints={'type': 'ineq', 'fun': CI_lambda[i]})
+            res = minimize(Acquisition_function_opt, x0=mu[i].flatten(), args=(af_params, sense, model, models_const, engine), method='SLSQP', bounds=bnds, constraints={'type': 'ineq', 'fun': CI_lambda[i]})
         x_opt.append(res.x)
 
     return x_opt
