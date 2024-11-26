@@ -36,6 +36,7 @@ class BO():
                  n_components = None,
                  inverter_transform = "no",
                  alpha = 0.95,
+                 beta = 0.5,
                  c1_param = 50,
                  c2_param = 10,
                  verbose = 0,
@@ -66,6 +67,7 @@ class BO():
         self.n_components = n_components
         self.inverter_transform = inverter_transform
         self.alpha = alpha
+        self.beta = beta
         self.c1_param = c1_param
         self.c2_param = c2_param
         self.verbose = verbose
@@ -99,7 +101,7 @@ class BO():
         # Spawning processes
         n_jobs_ = Get_n_jobs(self.n_jobs)
         # Select covariance
-        kernel_ = Get_kernel(x_tau, f, dims_tau, self.surrogate, self.kernel, self.kern_discovery, self.kern_discovery_evals, self.engine)
+        kernel_ = Get_kernel(x_tau, f, dims_tau, self.surrogate, self.beta, self.kernel, self.kern_discovery, self.kern_discovery_evals, self.engine)
         # Initialize iteration parameters
         x_symb, x_symb_names, flag, q, q_inc, delta_q, chi, update_param = Iter_params(dims, dims_tau, self.max_iter, self.alpha)
         # Initialize AF parameters
@@ -124,10 +126,17 @@ class BO():
             # Find conected elements
             connected_elements, n_connected_elements = Sl_sf(x_mesh, n_p_mesh, dims_tau, n_jobs_, q, af_params, self.constraints_method, model, models_constraints, self.engine, self.sense, AF)
             # Find CI bounds
-            if n_connected_elements == 0 or len(np.concatenate(connected_elements)) < n_jobs_:
-                mu, Sigma_inv, t_critical = Find_descriptors(x_mesh, len(x_mesh), n_jobs_, dims_tau, self.alpha, af_params, self.constraints_method, model, models_constraints, self.engine, AF)
-            else:
-                mu, Sigma_inv, t_critical = Find_descriptors(connected_elements, n_connected_elements, n_jobs_, dims_tau, self.alpha, af_params, self.constraints_method, model, models_constraints, self.engine, AF)
+            try:
+                conc = np.concatenate(connected_elements)
+            except:
+                conc = np.hstack(connected_elements)
+            try:
+                if n_connected_elements == 0 or len(conc) < n_jobs_:
+                    mu, Sigma_inv, t_critical = Find_descriptors(x_mesh, len(x_mesh), n_jobs_, dims_tau, self.alpha, af_params, self.constraints_method, model, models_constraints, self.engine, AF)
+                else:
+                    mu, Sigma_inv, t_critical = Find_descriptors(connected_elements, n_connected_elements, n_jobs_, dims_tau, self.alpha, af_params, self.constraints_method, model, models_constraints, self.engine, AF)
+            except:
+                print(n_connected_elements, conc)
             # Lambdify CI bounds
             CI_lambda = Find_constrains(x_symb, mu, Sigma_inv, chi, t_critical, n_jobs_, dims_tau)
             # Find new point(s)

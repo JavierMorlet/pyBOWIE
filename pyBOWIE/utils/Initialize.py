@@ -200,8 +200,12 @@ def Get_n_p_design(fun, d_nc, d_ni, d_nq, x_l, x_u, int_val, cat_val, c1_param, 
         start = time.time()
         f_eval = fun(x.reshape(1,-1))
         end = time.time()
+        time_eval = (end - start)
+
+        if time_eval < 1e-10:
+            time_eval = 1e-8
         
-        return (end - start), f_eval
+        return time_eval, f_eval
 
     # *************************
         # Points_initial_design
@@ -470,10 +474,10 @@ def Get_n_jobs(n_jobs):
 # ****** Get_kernel ******
 # *******************************************************
 
-def Get_kernel(x, z, dims, surrogate, kernel, kern_discovery, kern_discovery_evals, engine):
+def Get_kernel(x, z, dims, surrogate, beta, kernel, kern_discovery, kern_discovery_evals, engine):
 
     if kern_discovery == "yes":
-        kernel_ = Kernel_discovery(x, z, dims, surrogate, kern_discovery_evals, engine)
+        kernel_ = Kernel_discovery(x, z, dims, surrogate, beta, kern_discovery_evals, engine)
     elif kern_discovery == "no" and kernel is None:
         if engine == 'gpflow':
             kernel_ = RBF_gpflow()

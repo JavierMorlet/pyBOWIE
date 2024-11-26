@@ -4,6 +4,7 @@
 
 import numpy as np
 from itertools import product, permutations
+from operator import itemgetter
 from ..utils.Aux import Flatten
 
 # *******************************************************
@@ -114,7 +115,10 @@ def Sl_sf(mesh, p_mesh, dims, jobs, q0, af_params, constraints_method, model, mo
         scores_mean = []
 
         for i in range(n_elements):
-            scores_lst.append(np.array([Replace_val(x[i][j], mesh_all, score_all) for j in range(len(x[i]))]))
+            try:
+                scores_lst.append(np.array([Replace_val(x[i][j], mesh_all, score_all) for j in range(len(x[i]))]))
+            except:
+                return [Replace_val(x[i][j], mesh_all, score_all) for j in range(len(x[i]))]
 
         for i in range(n_elements):
             if len(scores_lst[i].shape) == 1:
@@ -153,7 +157,12 @@ def Sl_sf(mesh, p_mesh, dims, jobs, q0, af_params, constraints_method, model, mo
         pass
     #  
     if n_connected_elements > jobs:
-        connected_elements, n_connected_elements = Reduce_num_elements(connected_elements, mesh, score, n_connected_elements, jobs, sense)
+        try:
+            connected_elements, n_connected_elements = Reduce_num_elements(connected_elements, mesh, score, n_connected_elements, jobs, sense)
+        except:
+            b = np.random.choice(n_connected_elements, jobs, replace=False)
+            connected_elements = itemgetter(*b)(connected_elements)
+            n_connected_elements = jobs
         
 
     return connected_elements, n_connected_elements

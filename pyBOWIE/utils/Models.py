@@ -3,6 +3,7 @@
 # *******************************************************
 
 import numpy as np
+import pandas as pd
 import properscoring as ps
 from sklearn.model_selection import train_test_split
 from sklearn.gaussian_process import kernels as kernels_sklear
@@ -133,7 +134,7 @@ def Train_models_constraints(x, g, constraints, n_constraints, constraints_metho
 # ****** Kernel_discovery ******
 # *******************************************************
 
-def Kernel_discovery(x, f, dims, surrogate, evals, engine):
+def Kernel_discovery(x, f, dims, surrogate, beta, evals, engine):
 
     def Search(x_train, x_test, f_train, f_test, n, kernels, surrogate, engine):
 
@@ -191,14 +192,20 @@ def Kernel_discovery(x, f, dims, surrogate, evals, engine):
         
         return BIC, CRPS, models
 
-    def Get_best_model(BIC, CRPS, models, alpha = 0.5):
+    def Get_best_model(BIC, CRPS, models, beta, eval):
 
         normalized_bics = (BIC - np.min(BIC)) / (np.max(BIC) - np.min(BIC))
         normalized_crpss = (CRPS - np.min(CRPS)) / (np.max(CRPS) - np.min(CRPS))
 
         # Combine scores (example: equal weight)
         
-        scores = alpha * normalized_bics + (1-alpha) * normalized_crpss
+        scores = beta * normalized_bics + (1-beta) * normalized_crpss
+        #df_BIC = pd.DataFrame(np.vstack((BIC, normalized_bics)), columns=models.keys())
+        #df_CRPS = pd.DataFrame(np.vstack((CRPS, normalized_crpss)), columns=models.keys())
+        #df_scores = pd.DataFrame(np.array(scores).reshape(1,-1), columns=models.keys())
+        #df_BIC.to_csv('/Users/javiermorlet/Codes/Project_3/plots/Results/Example_1/Fig_1_3/df_BIC' + str(eval) + '.csv')
+        #df_CRPS.to_csv('/Users/javiermorlet/Codes/Project_3/plots/Results/Example_1/Fig_1_3/df_CRPS' + str(eval) + '.csv')
+        #df_scores.to_csv('/Users/javiermorlet/Codes/Project_3/plots/Results/Example_1/Fig_1_3/df_scores' + str(eval) + '.csv')
         models_ordered = [x for _, x in sorted(zip(scores, models.keys()))]
         
         return {models_ordered[0]: models[models_ordered[0]]}
@@ -216,8 +223,7 @@ def Kernel_discovery(x, f, dims, surrogate, evals, engine):
         kernels_ = {"linear": kernels_sklear.DotProduct(),
                 "RBF": kernels_sklear.RBF(),
                 "Mater_52": kernels_sklear.Matern(nu=2.5),
-                "Rational_Quadratic": kernels_sklear.RationalQuadratic()
-                    
+                "Rational_Quadratic": kernels_sklear.RationalQuadratic()  
                 }
     elif engine == 'GPy':
         kernels_ = {"linear": kernels_gpy.Linear(input_dim=dims),
@@ -231,7 +237,7 @@ def Kernel_discovery(x, f, dims, surrogate, evals, engine):
     for i in range(evals):
         base_kernels = kernels_.copy()
         BIC, CRPS, models = Search(x_train, x_test, f_train, f_test, n, base_kernels, surrogate, engine)
-        best_model = Get_best_model(BIC, CRPS, models)
+        best_model = Get_best_model(BIC, CRPS, models, beta, i)
         base_model = list(best_model.values())[0]
         base_model_name = list(best_model.keys())[0]
         if engine == 'gpflow':
